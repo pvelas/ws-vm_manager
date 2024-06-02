@@ -8,7 +8,7 @@ In addition there is simple button to snapshot vm and save it to disk under name
 
 #### Metadata
 If possible and guest tools are available it will show primary IP of VM. 
-After IP it will list all MAC adresses of ethernet devices found in vmx file. 
+After IP it will list all MAC addresses of ethernet devices found in vmx file. 
 Sometime additional NIC is not visible in UI and this will tell me that I should be careful. 
 
 
