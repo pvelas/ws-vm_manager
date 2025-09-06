@@ -1,2 +1,4 @@
 venv
 .idea
+vm_manager.log
+__pycache__/app.cpython-312.pyc

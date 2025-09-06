@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 import subprocess
 from datetime import datetime
 import time
@@ -8,17 +8,13 @@ from flask import current_app
 
 app = Flask(__name__)
 
+VMRUN_PATH = '/usr/bin/vmrun'
 logging.basicConfig(filename='vm_manager.log', level=logging.INFO)
 
 VM_DIRECTORY = {
-    "20_lab_vulnhub": "/home/username/vmware/20_lab_vulnhub/",
-    "20_lab_vulnhub_2004-2009": "/home/username/vmware/20_lab_vulnhub_2004-2009/"
+    "99_infra_red_net": "/home/velo/vmware/99_infra_red_net/",
+    "99_red_net": "/home/velo/vmware/99_red_net/"
 }
-
-
-
-
-# --- Your Existing Function ---
 
 def timed_function(func):
     """Decorator to measure the execution time of a function."""
@@ -27,14 +23,13 @@ def timed_function(func):
         result = func(*args, **kwargs)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"Function {func.__name__} took {execution_time:.2f} seconds to execute")  # Debug message
+        print(f"Function {func.__name__} took {execution_time:.2f} seconds to execute")
         return result
     return wrapper
 
 @timed_function
 def find_vmx_files_with_walk(directories):
     vmx_files = {} 
-
     for lab_name, directory in directories.items():
         for root, dirs, files in os.walk(directory):
             for file in files:
@@ -42,183 +37,164 @@ def find_vmx_files_with_walk(directories):
                     if lab_name not in vmx_files:
                         vmx_files[lab_name] = [] 
                     vmx_files[lab_name].append(os.path.join(root, file))  
-
     return vmx_files 
 
-
-# --- New Functions ---
 @timed_function
-def get_vm_status(vm_info, vmx_path):
-    """Gets the running status of a VM using the cached vm_info."""
-    vm_name = os.path.basename(vmx_path).split(".")[0]
-    lab_name = vmx_path.split('/')[-2] # Extract lab name from vmx_path
-    vm_data = vm_info.get((lab_name, vm_name))
-    return "Running" if vm_data["complete"] else "Stopped"
-
-
-@timed_function
-def get_vm_network_details(vmx_path):
-    """Gets all MAC addresses and the first available IPv4 address (or N/A) using vmrun."""
-
-    mac_addresses = []
-    ip_address = "N/A"
-
-    # Get MAC addresses from .vmx file, avoiding duplicates and offset lines
-    seen_macs = set()
-    with open(vmx_path, 'r') as f:
-        for line in f:
-            if line.startswith("ethernet") and "generatedAddress" in line:
-                mac = line.split("=")[1].strip().strip('"')
-                if mac not in seen_macs and not mac.isdigit():  # Filter out duplicates and offsets
-                    mac_addresses.append(mac)
-                    seen_macs.add(mac)
-
-    if not mac_addresses:
-        return ["No MAC addresses found in .vmx file"]
-
-    # Get first available IPv4 address using getGuestIPAddresses
-    status = get_vm_status(vmx_path)
-    if status == "Running":
-        command = ["vmrun", "-T", "ws", "getGuestIPAddresses", vmx_path]
-        result = subprocess.run(command, capture_output=True, text=True)
-
-        if result.returncode == 0:
-            for line in result.stdout.splitlines():
-                if line.startswith("ethernet"):
-                    ip_address = line.split()[1].strip()  # Get the first valid IP
-                    break  # Stop after finding one
-
-    mac_info = ", ".join(f"MAC: {mac}" for mac in mac_addresses)
-    return [f"IPv4: {ip_address}"] + mac_addresses   # Combine details (IP first, then MACs)
-
-
-@timed_function
-def manage_vm(vmx_path, action):
-    """Starts, stops, or restarts a VM using vmrun in headless mode."""
-
+def manage_vm(vmx_path, action, snapshot_name=None):
+    """Starts, stops, restarts, or snapshots a VM."""
+    command = []
     if action == "start":
-        command = ["vmrun", "-T", "ws", action, vmx_path, "nogui"]  # Always add 'nogui' for start
+        command = [VMRUN_PATH, "-T", "ws", action, vmx_path, "nogui"]
+    elif action == "snapshot":
+        if not snapshot_name:
+            logging.error("Snapshot action called without a snapshot name.")
+            raise ValueError("Snapshot name is required.")
+        command = [VMRUN_PATH, "snapshot", vmx_path, snapshot_name]
     else:
-        command = ["vmrun", "-T", "ws", action, vmx_path]           # No 'nogui' needed for stop/reset
-
+        command = [VMRUN_PATH, "-T", "ws", action, vmx_path]
+    
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Error executing vmrun (return code {e.returncode}): {e.stderr}")
-        raise
+        logging.info(f"Successfully executed '{action}' on {vmx_path}. Output: {result.stdout}")
 
-    # Print output for debugging in the console (optional)
-    if result.returncode != 0:
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error executing vmrun '{action}' on {vmx_path} (return code {e.returncode}): {e.stderr}")
+        raise
+    
+    if 'result' in locals() and result.returncode != 0:
         print("Error:", result.stderr, flush=True)
     else:
-        print("Success:", result.stdout, flush=True)
+        print("Success:", "Command executed.", flush=True)
 
 
+@timed_function
+def get_vm_snapshots(vmx_path):
+    """Gets the list of snapshots for a single VM."""
+    snapshots = []
+    try:
+        command = [VMRUN_PATH, "listSnapshots", vmx_path]
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        lines = result.stdout.strip().splitlines()
+        if len(lines) > 1:
+            snapshots = [line.strip() for line in lines[1:]]
+    except subprocess.CalledProcessError as e:
+        logging.info(f"Could not list snapshots for {vmx_path} (maybe none exist): {e.stderr.strip()}")
+    except FileNotFoundError:
+        logging.error(f"vmrun command not found at path: {VMRUN_PATH}")
+    return snapshots
 
 @timed_function
 def get_all_vm_info(directories):
-    """Gets info for all VMs, including running status, MAC, and IP (if running)."""
-
-    result = subprocess.run(["vmrun", "list"], capture_output=True, text=True)
-    running_vm_files = [os.path.basename(line.strip()) for line in result.stdout.splitlines() if line.endswith(".vmx")]
-
+    """Gets info for all VMs, including running status, MAC, IP, and snapshots."""
+    result = subprocess.run([VMRUN_PATH, "list"], capture_output=True, text=True)
+    running_vm_paths = [line.strip() for line in result.stdout.splitlines() if line.endswith(".vmx")]
+    
     vm_info = {}
-
     for lab_name, vmx_list in find_vmx_files_with_walk(directories).items():
         for vmx in vmx_list:
-            vm_name = os.path.basename(vmx).split(".")[0]
-            is_running = os.path.basename(vmx) in running_vm_files
+            display_name = None
+            try:
+                with open(vmx, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        if line.strip().startswith("displayName"):
+                            display_name = line.split("=")[1].strip().strip('"')
+                            break
+            except IOError as e:
+                logging.error(f"Could not read file {vmx}: {e}")
 
-            mac_addresses = []
-            ip_addresses = []  
+            vm_name = display_name if display_name else os.path.basename(vmx).split(".")[0]
+            is_running = vmx in running_vm_paths
+
             details = []
-
-            # Get MAC addresses from .vmx file, avoiding duplicates and offset lines
-            seen_macs = set()
-            with open(vmx, 'r') as f:
-                for line in f:
-                    if line.startswith("ethernet") and "generatedAddress" in line:
-                        mac = line.split("=")[1].strip().strip('"')
-                        if mac not in seen_macs and not mac.isdigit():  # Filter out duplicates and offsets
-                            mac_addresses.append(mac)
-                            seen_macs.add(mac)
-
-            if not mac_addresses:
-                return ["No MAC addresses found in .vmx file"]
-
-            # Get IPv4 addresses using getGuestIPAddress (singular) only if VM is running
+            
+            # Get IP Address if running
+            ip_address = "N/A"
             if is_running:
-                command = ["vmrun", "-T", "ws", "getGuestIPAddress", vmx] # <--- corrected this line
-                result = subprocess.run(command, capture_output=True, text=True)
-
-                if result.returncode == 0:
-                    # Assuming the first valid IP address found for an interface is the correct one
-                    ip_address = result.stdout.splitlines()[0].strip()
-                    ip_addresses.append(ip_address)
+                command = [VMRUN_PATH, "-T", "ws", "getGuestIPAddress", vmx]
+                ip_result = subprocess.run(command, capture_output=True, text=True)
+                if ip_result.returncode == 0 and ip_result.stdout.strip():
+                    ip_address = ip_result.stdout.strip()
                 else:
-                    logging.error(f"Error retrieving IP for {vmx}: {result.stderr}")
-                    ip_addresses = ["Error retrieving IP"] 
+                    logging.warning(f"Could not retrieve IP for running VM {vmx}: {ip_result.stderr.strip()}")
+            details.append(f"IPv4: {ip_address}")
 
-            # If the VM is not running, add "N/A" for IPv4
-            if not ip_addresses:
-                ip_addresses = ["N/A"] 
+            # Get MAC addresses with their corresponding vmnet interfaces
+            ethernet_devices = {}
+            try:
+                with open(vmx, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("ethernet"):
+                            parts = line.split('.', 1)
+                            if len(parts) == 2:
+                                adapter_id = parts[0]
+                                key_value = parts[1].split('=', 1)
+                                if len(key_value) == 2:
+                                    key = key_value[0].strip()
+                                    value = key_value[1].strip().strip('"')
+                                    if adapter_id not in ethernet_devices:
+                                        ethernet_devices[adapter_id] = {}
+                                    if key in ['vnet', 'generatedAddress']:
+                                        ethernet_devices[adapter_id][key] = value
+            except IOError as e:
+                 logging.error(f"Could not read file {vmx} for MAC details: {e}")
 
-            # Combine MAC and IP details (only the first IP address)
-            if ip_addresses:
-                details.append(f"IPv4: {ip_addresses[0]}") 
-            details.extend([f"MAC: {mac}" for mac in mac_addresses]) 
+            for adapter_id in sorted(ethernet_devices.keys()):
+                device = ethernet_devices[adapter_id]
+                mac = device.get('generatedAddress')
+                net_name_raw = device.get('vnet', 'N/A')
+                net_name = os.path.basename(net_name_raw) if net_name_raw != 'N/A' else 'N/A'
+                if mac:
+                    details.append(f"MAC {net_name}: {mac}")
+
+            snapshots = get_vm_snapshots(vmx)
 
             vm_info[(lab_name, vm_name)] = {
                 "title": vm_name,
                 "complete": is_running,
                 "vmx_path": vmx,
+                "snapshots": snapshots,
                 "details": details
             }
-            current_app.logger.debug(f"VM info for {vm_name}: {vm_info[(lab_name, vm_name)]}") # Additional debugging
-            current_app.logger.debug(f"Result of vmrun getGuestIPAddresses for {vm_name}: {result}")
-    current_app.logger.debug(f"get_all_vm_info function finished, returning data: {vm_info}")
     return vm_info
 
 # --- Flask Routes ---
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET"])
 def index():
-    vmx_files = find_vmx_files_with_walk(VM_DIRECTORY)
-    vm_info = get_all_vm_info(VM_DIRECTORY)  # Fetch VM info before each request
+    vm_info = get_all_vm_info(VM_DIRECTORY)
     vm_data_by_lab = {}
-
-    if request.method == 'POST':
-        vmx_path = request.form['vmx_path']
-        action = request.form['action']
-
-        # Fix for get_vm_status call:
-        vm_name = os.path.basename(vmx_path).split(".")[0]
-        lab_name = vmx_path.split('/')[-2]  
-
-        # Refreshed the VM status before performing the action
-        manage_vm(vmx_path, action) 
-        vm_info = get_all_vm_info(VM_DIRECTORY)  # Refresh VM info after the action
-        # Update the status based on the new vm_info
-
-        return redirect(url_for("index"))  
-    # Prepare data for the template, grouping by lab and sorting
     for (lab_name, vm_name), vm_data in vm_info.items():
         if lab_name not in vm_data_by_lab:
             vm_data_by_lab[lab_name] = []
         vm_data_by_lab[lab_name].append(vm_data)
 
-    # Sort labs and VMs within each lab
+    # Sort labs and VMs within labs
     sorted_labs = sorted(vm_data_by_lab.keys())
-    for lab_name in sorted_labs:
-        vm_data_by_lab[lab_name].sort(key=lambda vm: vm["title"])
+    sorted_vm_data_by_lab = {lab: sorted(vm_data_by_lab[lab], key=lambda vm: vm["title"]) for lab in sorted_labs}
 
-    print("VM data:", vm_data_by_lab) 
-    return render_template("index.html", vm_data_by_lab=vm_data_by_lab)
+    return render_template("index.html", vm_data_by_lab=sorted_vm_data_by_lab)
 
 
+@app.route("/api/vm/action", methods=['POST'])
+def api_vm_action():
+    data = request.get_json()
+    vmx_path = data.get('vmx_path')
+    action = data.get('action')
+    snapshot_name = data.get('snapshot_name')
+    
+    if not vmx_path or not action:
+        return jsonify({'status': 'error', 'message': 'Missing parameters'}), 400
 
-
+    try:
+        manage_vm(vmx_path, action, snapshot_name=snapshot_name)
+        return jsonify({'status': 'success', 'message': f'Action {action} initiated.'})
+    except Exception as e:
+        logging.error(f"API Error on action '{action}' for {vmx_path}: {e}")
+        # Pass the specific error message from stderr if available
+        error_message = str(e.stderr) if hasattr(e, 'stderr') else str(e)
+        return jsonify({'status': 'error', 'message': error_message}), 500
 
 # --- Main ---
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
 
