@@ -15,8 +15,13 @@ Sometime additional NIC is not visible in UI and this will tell me that I should
 #### Setup
 <hr>
 
-- Create python3 virtual environment and activate it (python3 -m venv venv)
-- Run 'pip install -r requirements.txt' on terminal
+- Create python3 virtual environment activate it and install requirements
+```
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
 - Run app.py on terminal for start local server
 <hr>
 
@@ -27,3 +32,28 @@ Sometime additional NIC is not visible in UI and this will tell me that I should
 
 #### Example
 ![example](templates/VM_Manager.png)
+
+
+
+
+##### Run it as a service
+
+/etc/systemd/system/ws-manager.service 
+
+```
+cat /etc/systemd/system/ws-manager.service
+[Unit]
+Description=Gunicorn instance to serve my web app
+After=network.target
+
+
+
+[Service]
+User=username
+Group=groupname
+WorkingDirectory=/home/username/ws-vm_manager
+Environment="PATH=/home/username/ws-vm_manager/venv/bin"
+Environment="FLASK_DEBUG=1"
+ExecStart=/home/username/ws-vm_manager/venv/bin/python3 /home/username/ws-vm_manager/app.py
+Restart=always
+```
