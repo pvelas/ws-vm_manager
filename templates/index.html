@@ -19,9 +19,7 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
         }
-        .btn {
-            transition: background-color 0.2s;
-        }
+        .btn { transition: background-color 0.2s; }
         .btn-start { background-color: #22c55e; color: white; }
         .btn-start:hover { background-color: #16a34a; }
         .btn-stop { background-color: #ef4444; color: white; }
@@ -30,24 +28,14 @@
         .btn-restart:hover { background-color: #ea580c; }
         .btn-snapshot { background-color: #3b82f6; color: white; }
         .btn-snapshot:hover { background-color: #2563eb; }
-        .btn:disabled {
-            background-color: #9ca3af;
-            cursor: not-allowed;
-        }
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-        }
+        .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
         .status-online { background-color: #22c55e; }
         .status-offline { background-color: #ef4444; }
-        .lab-title {
-            color: #4b5563;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 8px;
-            margin-bottom: 1rem;
-        }
+        .lab-title { color: #4b5563; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 1rem; }
+        .collapsible-header { cursor: pointer; user-select: none; }
+        .chevron { transition: transform 0.2s ease-in-out; }
+        .collapsed .chevron { transform: rotate(-90deg); }
     </style>
 </head>
 <body class="p-4 sm:p-6 md:p-8">
@@ -68,7 +56,6 @@
             </div>
         </div>
 
-        <!-- Jinja2 Template for a VM Card -->
         {% macro render_vm_card(vm) %}
         <div class="vm-card bg-white rounded-lg p-5 border border-gray-200">
             <div class="flex justify-between items-start">
@@ -106,37 +93,51 @@
         {% endmacro %}
 
         <!-- Online VMs Section -->
-        <div>
-            <h2 class="text-2xl font-bold mb-4 text-green-600">Online VMs</h2>
-            {% for lab_name, vms in vm_data_by_lab.items() %}
-                <div class="mb-8">
-                    <h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {% for vm in vms %}
-                            {% if vm.complete %}
-                                {{ render_vm_card(vm) }}
-                            {% endif %}
-                        {% endfor %}
+        <div class="mb-8">
+            <div id="online-vms-header" class="collapsible-header flex items-center mb-4">
+                <h2 class="text-2xl font-bold text-green-600">Online VMs</h2>
+                <svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div id="online-vms-content">
+                {% for lab_name, vms in vm_data_by_lab.items() %}
+                    <div class="mb-8">
+                        <h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {% for vm in vms %}
+                                {% if vm.complete %}
+                                    {{ render_vm_card(vm) }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
                     </div>
-                </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
 
         <!-- Offline VMs Section -->
         <div class="mt-12">
-            <h2 class="text-2xl font-bold mb-4 text-red-600">Offline VMs</h2>
-            {% for lab_name, vms in vm_data_by_lab.items() %}
-                <div class="mb-8">
-                    <h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {% for vm in vms %}
-                            {% if not vm.complete %}
-                                {{ render_vm_card(vm) }}
-                            {% endif %}
-                        {% endfor %}
+            <div id="offline-vms-header" class="collapsible-header flex items-center mb-4">
+                 <h2 class="text-2xl font-bold text-red-600">Offline VMs</h2>
+                 <svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div id="offline-vms-content">
+                {% for lab_name, vms in vm_data_by_lab.items() %}
+                    <div class="mb-8">
+                        <h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {% for vm in vms %}
+                                {% if not vm.complete %}
+                                    {{ render_vm_card(vm) }}
+                                {% endif %}
+                            {% endfor %}
+                        </div>
                     </div>
-                </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
     </div>
 
@@ -144,10 +145,29 @@
         let refreshIntervalId = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            // --- Collapsible Logic ---
+            const sections = [
+                { header: document.getElementById('online-vms-header'), content: document.getElementById('online-vms-content'), key: 'onlineVmsCollapsed' },
+                { header: document.getElementById('offline-vms-header'), content: document.getElementById('offline-vms-content'), key: 'offlineVmsCollapsed' }
+            ];
+
+            sections.forEach(section => {
+                if (localStorage.getItem(section.key) === 'true') {
+                    section.content.classList.add('hidden');
+                    section.header.classList.add('collapsed');
+                }
+
+                section.header.addEventListener('click', () => {
+                    section.content.classList.toggle('hidden');
+                    section.header.classList.toggle('collapsed');
+                    localStorage.setItem(section.key, section.header.classList.contains('collapsed'));
+                });
+            });
+
+            // --- Refresh Logic & Async Actions ---
             const refreshIntervalSelect = document.getElementById('refresh-interval');
             const refreshNowButton = document.getElementById('refresh-now');
 
-            // --- Refresh Logic ---
             refreshNowButton.addEventListener('click', () => location.reload());
 
             const savedInterval = localStorage.getItem('vmRefreshInterval') || '0';
@@ -172,7 +192,6 @@
                 setAutoRefresh(interval);
             });
             
-            // --- Asynchronous VM Actions ---
             document.body.addEventListener('click', function(event) {
                 const button = event.target.closest('button');
                 if (!button) return;
@@ -190,7 +209,7 @@
                         const defaultNameSafe = defaultNameRaw.replace(/:/g, '-').replace(/ /g, '_');
                         snapshotName = prompt("Enter a name for the snapshot:", defaultNameSafe);
                         
-                        if (!snapshotName) return; // User cancelled prompt
+                        if (!snapshotName) return;
                         payload.snapshot_name = snapshotName;
                     }
 
@@ -208,16 +227,12 @@
                     .then(({ ok, data }) => {
                         if (!ok) throw new Error(data.message || 'An unknown error occurred.');
                         
-                        // Action was successful. Reload if auto-refresh is off.
                         if (localStorage.getItem('vmRefreshInterval') === '0') {
                             setTimeout(() => location.reload(), 1000);
                         }
                     })
                     .catch(error => {
                         alert(`Error: ${error.message}`);
-                        // Restore button state on error
-                        button.textContent = originalText;
-                        // It's simplest to just reload to restore the correct button states
                         location.reload();
                     });
                 }
