@@ -1,10 +1,9 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, jsonify
 import subprocess
-from datetime import datetime
 import time
 import logging
-from flask import current_app
+import shutil
 
 app = Flask(__name__)
 
@@ -14,12 +13,10 @@ VM_DIRECTORY = {
     "99_infra_red_net": "/home/velo/vmware/99_infra_red_net/",
     "99_red_net": "/home/velo/vmware/99_red_net/"
 }
-CACHE_DURATION_SECONDS = 300  # Cache static VM data for 5 minutes
+CACHE_DURATION_SECONDS = 300
 logging.basicConfig(filename='vm_manager.log', level=logging.INFO)
 
 # --- In-Memory Cache ---
-# This dictionary will store data that doesn't change often.
-# Key: vmx_path, Value: {'data': { ... }, 'timestamp': float}
 vm_cache = {}
 
 def timed_function(func):
@@ -33,7 +30,6 @@ def timed_function(func):
         return result
     return wrapper
 
-# This function is no longer decorated with @timed_function because its parts are timed individually
 def find_vmx_files_with_walk(directories):
     vmx_files = {} 
     for lab_name, directory in directories.items():
@@ -45,6 +41,31 @@ def find_vmx_files_with_walk(directories):
                     vmx_files[lab_name].append(os.path.join(root, file))  
     return vmx_files 
 
+def clean_vm_locks(vmx_path):
+    """Finds and removes .lck directories in the VM's folder."""
+    vm_dir = os.path.dirname(vmx_path)
+    logging.info(f"Attempting to clean lock files in directory: {vm_dir}")
+    try:
+        for item in os.listdir(vm_dir):
+            if item.endswith('.lck'):
+                lock_path = os.path.join(vm_dir, item)
+                shutil.rmtree(lock_path)
+                logging.info(f"Successfully removed lock directory: {lock_path}")
+    except Exception as e:
+        logging.error(f"Error cleaning lock files in {vm_dir}: {e}")
+        raise
+
+def check_for_locks(vmx_path):
+    """Checks if any .lck files/directories exist for a given VM."""
+    vm_dir = os.path.dirname(vmx_path)
+    try:
+        for item in os.listdir(vm_dir):
+            if item.endswith('.lck'):
+                return True
+    except FileNotFoundError:
+        return False
+    return False
+
 def manage_vm(vmx_path, action, snapshot_name=None):
     """Starts, stops, restarts, or snapshots a VM."""
     command = []
@@ -52,31 +73,29 @@ def manage_vm(vmx_path, action, snapshot_name=None):
         command = [VMRUN_PATH, "-T", "ws", action, vmx_path, "nogui"]
     elif action == "snapshot":
         if not snapshot_name:
-            logging.error("Snapshot action called without a snapshot name.")
             raise ValueError("Snapshot name is required.")
         command = [VMRUN_PATH, "snapshot", vmx_path, snapshot_name]
     else:
         command = [VMRUN_PATH, "-T", "ws", action, vmx_path]
     
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        logging.info(f"Successfully executed '{action}' on {vmx_path}. Output: {result.stdout}")
-        # When a snapshot is taken, invalidate the cache for that VM
+        subprocess.run(command, capture_output=True, text=True, check=True)
+        logging.info(f"Successfully executed '{action}' on {vmx_path}.")
         if action == "snapshot":
             if vmx_path in vm_cache:
                 del vm_cache[vmx_path]
-
     except subprocess.CalledProcessError as e:
-        logging.error(f"Error executing vmrun '{action}' on {vmx_path} (return code {e.returncode}): {e.stderr}")
+        logging.error(f"Error executing vmrun '{action}' on {vmx_path}: {e.stderr}")
         raise
 
 @timed_function
-def get_all_vm_info(directories):
+def get_all_vm_info(directories, force_refresh=False):
     """
-    Gets info for all VMs, using a cache for static data (name, MACs, snapshots)
-    and fetching live data for dynamic info (power state, IP).
+    Gets info for all VMs, using a cache unless force_refresh is True.
     """
-    # 1. ALWAYS get live power status. This is fast.
+    if force_refresh:
+        print("--- FULL REFRESH INVOKED: Bypassing cache. ---")
+        
     result = subprocess.run([VMRUN_PATH, "list"], capture_output=True, text=True)
     running_vm_paths = [line.strip() for line in result.stdout.splitlines() if line.endswith(".vmx")]
     
@@ -87,14 +106,15 @@ def get_all_vm_info(directories):
         for vmx in vmx_list:
             current_time = time.time()
             
-            # 2. Check for valid cache entry for static data
-            if vmx in vm_cache and (current_time - vm_cache[vmx]['timestamp']) < CACHE_DURATION_SECONDS:
-                # CACHE HIT: Use cached data
+            if not force_refresh and vmx in vm_cache and (current_time - vm_cache[vmx]['timestamp']) < CACHE_DURATION_SECONDS:
                 static_data = vm_cache[vmx]['data']
                 print(f"Cache HIT for {vmx}")
             else:
-                # CACHE MISS: Fetch fresh static data
-                print(f"Cache MISS for {vmx}")
+                if force_refresh:
+                     print(f"FORCE REFRESH for {vmx}")
+                else:
+                     print(f"Cache MISS for {vmx}")
+
                 display_name = None
                 ethernet_devices = {}
                 try:
@@ -118,26 +138,25 @@ def get_all_vm_info(directories):
                     logging.error(f"Could not read file {vmx}: {e}")
 
                 vm_name = display_name if display_name else os.path.basename(vmx).split(".")[0]
-                snapshots = get_vm_snapshots(vmx) # This is a slow operation
+                snapshots = get_vm_snapshots(vmx)
 
                 static_data = {
                     "title": vm_name,
                     "ethernet_devices": ethernet_devices,
                     "snapshots": snapshots
                 }
-                # Store the newly fetched data in the cache
                 vm_cache[vmx] = {'data': static_data, 'timestamp': current_time}
 
-            # 3. Process dynamic data (power state and IP)
             is_running = vmx in running_vm_paths
+            has_locks = False if is_running else check_for_locks(vmx)
+
             ip_address = "N/A"
             if is_running:
                 command = [VMRUN_PATH, "-T", "ws", "getGuestIPAddress", vmx]
                 ip_result = subprocess.run(command, capture_output=True, text=True)
                 if ip_result.returncode == 0 and ip_result.stdout.strip():
                     ip_address = ip_result.stdout.strip()
-
-            # 4. Assemble final details list for the template
+            
             details = [f"IPv4: {ip_address}"]
             for adapter_id in sorted(static_data['ethernet_devices'].keys()):
                 device = static_data['ethernet_devices'][adapter_id]
@@ -147,10 +166,10 @@ def get_all_vm_info(directories):
                 if mac:
                     details.append(f"MAC {net_name}: {mac}")
             
-            # 5. Combine all data for the final dictionary
             vm_info[(lab_name, static_data['title'])] = {
                 "title": static_data['title'],
                 "complete": is_running,
+                "has_locks": has_locks,
                 "vmx_path": vmx,
                 "snapshots": static_data['snapshots'],
                 "details": details
@@ -158,7 +177,6 @@ def get_all_vm_info(directories):
     return vm_info
 
 def get_vm_snapshots(vmx_path):
-    """Gets the list of snapshots for a single VM. (This is a slow I/O bound operation)"""
     snapshots = []
     try:
         command = [VMRUN_PATH, "listSnapshots", vmx_path]
@@ -168,14 +186,14 @@ def get_vm_snapshots(vmx_path):
             snapshots = [line.strip() for line in lines[1:]]
     except subprocess.CalledProcessError as e:
         logging.info(f"Could not list snapshots for {vmx_path}: {e.stderr.strip()}")
-    except FileNotFoundError:
-        logging.error(f"vmrun command not found at path: {VMRUN_PATH}")
     return snapshots
 
 # --- Flask Routes ---
 @app.route("/", methods=["GET"])
 def index():
-    vm_info = get_all_vm_info(VM_DIRECTORY)
+    full_refresh = request.args.get('full_refresh', 'false').lower() == 'true'
+    vm_info = get_all_vm_info(VM_DIRECTORY, force_refresh=full_refresh)
+    
     vm_data_by_lab = {}
     for (lab_name, vm_name), vm_data in vm_info.items():
         if lab_name not in vm_data_by_lab:
@@ -199,8 +217,12 @@ def api_vm_action():
         return jsonify({'status': 'error', 'message': 'Missing parameters'}), 400
 
     try:
-        manage_vm(vmx_path, action, snapshot_name=snapshot_name)
-        return jsonify({'status': 'success', 'message': f'Action {action} initiated.'})
+        if action == "clean_locks":
+            clean_vm_locks(vmx_path)
+        else:
+            manage_vm(vmx_path, action, snapshot_name=snapshot_name)
+        
+        return jsonify({'status': 'success', 'message': f'Action {action} completed.'})
     except Exception as e:
         logging.error(f"API Error on action '{action}' for {vmx_path}: {e}")
         error_message = str(e.stderr) if hasattr(e, 'stderr') else str(e)

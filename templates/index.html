@@ -28,6 +28,8 @@
         .btn-restart:hover { background-color: #ea580c; }
         .btn-snapshot { background-color: #3b82f6; color: white; }
         .btn-snapshot:hover { background-color: #2563eb; }
+        .btn-clean { background-color: #f59e0b; color: white; }
+        .btn-clean:hover { background-color: #d97706; }
         .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
         .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
         .status-online { background-color: #22c55e; }
@@ -42,7 +44,7 @@
     <div class="max-w-7xl mx-auto">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">Virtual Machine Dashboard</h1>
-            <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
                 <div class="flex items-center space-x-2">
                     <label for="refresh-interval" class="text-sm font-medium text-gray-700">Auto-refresh:</label>
                     <select id="refresh-interval" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
@@ -52,7 +54,8 @@
                         <option value="60">60s</option>
                     </select>
                 </div>
-                <button id="refresh-now" class="btn btn-snapshot font-semibold py-2 px-4 rounded-md text-sm">Refresh Now</button>
+                <button id="refresh-now" class="btn btn-snapshot font-semibold py-2 px-4 rounded-md text-sm">Refresh</button>
+                <button id="full-refresh-now" class="btn btn-restart font-semibold py-2 px-4 rounded-md text-sm">Full Refresh</button>
             </div>
         </div>
 
@@ -65,11 +68,15 @@
                 </h4>
             </div>
 
-            <div class="flex items-center space-x-2 mb-4 pb-4 border-b border-gray-200">
+            <div class="flex items-center space-x-2 mb-4 pb-4 border-b border-gray-200 flex-wrap gap-2">
                 <button type="button" data-action="start" data-vmx="{{ vm.vmx_path }}" class="btn btn-start font-semibold py-2 px-4 rounded-md text-sm" {% if vm.complete %}disabled{% endif %}>Start</button>
                 <button type="button" data-action="stop" data-vmx="{{ vm.vmx_path }}" class="btn btn-stop font-semibold py-2 px-4 rounded-md text-sm" {% if not vm.complete %}disabled{% endif %}>Stop</button>
                 <button type="button" data-action="restart" data-vmx="{{ vm.vmx_path }}" class="btn btn-restart font-semibold py-2 px-4 rounded-md text-sm" {% if not vm.complete %}disabled{% endif %}>Restart</button>
                 <button type="button" data-action="snapshot" data-vmx="{{ vm.vmx_path }}" class="btn btn-snapshot font-semibold py-2 px-4 rounded-md text-sm">Snapshot</button>
+                
+                {% if not vm.complete and vm.has_locks %}
+                <button type="button" data-action="clean_locks" data-vmx="{{ vm.vmx_path }}" class="btn btn-clean font-semibold py-2 px-4 rounded-md text-sm">Clean Locks</button>
+                {% endif %}
             </div>
 
             <div class="text-sm text-gray-600 space-y-2">
@@ -145,7 +152,6 @@
         let refreshIntervalId = null;
 
         document.addEventListener('DOMContentLoaded', () => {
-            // --- Collapsible Logic ---
             const sections = [
                 { header: document.getElementById('online-vms-header'), content: document.getElementById('online-vms-content'), key: 'onlineVmsCollapsed' },
                 { header: document.getElementById('offline-vms-header'), content: document.getElementById('offline-vms-content'), key: 'offlineVmsCollapsed' }
@@ -164,11 +170,17 @@
                 });
             });
 
-            // --- Refresh Logic & Async Actions ---
             const refreshIntervalSelect = document.getElementById('refresh-interval');
             const refreshNowButton = document.getElementById('refresh-now');
+            const fullRefreshNowButton = document.getElementById('full-refresh-now');
 
-            refreshNowButton.addEventListener('click', () => location.reload());
+            // Changed to navigate to the base URL, which strips any query parameters like ?full_refresh=true
+            refreshNowButton.addEventListener('click', () => {
+                window.location.href = '/';
+            });
+            fullRefreshNowButton.addEventListener('click', () => {
+                window.location.href = '/?full_refresh=true';
+            });
 
             const savedInterval = localStorage.getItem('vmRefreshInterval') || '0';
             refreshIntervalSelect.value = savedInterval;
@@ -180,7 +192,8 @@
                 }
                 const intervalMs = parseInt(interval, 10) * 1000;
                 if (intervalMs > 0) {
-                    refreshIntervalId = setInterval(() => location.reload(), intervalMs);
+                    // Also changed to navigate to the base URL for auto-refresh
+                    refreshIntervalId = setInterval(() => { window.location.href = '/'; }, intervalMs);
                 }
             }
 
@@ -194,20 +207,19 @@
             
             document.body.addEventListener('click', function(event) {
                 const button = event.target.closest('button');
-                if (!button) return;
+                if (!button || button.id === 'refresh-now' || button.id === 'full-refresh-now') return;
 
                 const action = button.dataset.action;
                 const vmxPath = button.dataset.vmx;
 
                 if (action && vmxPath) {
-                    let snapshotName = null;
                     const payload = { vmx_path: vmxPath, action: action };
 
                     if (action === 'snapshot') {
                         const now = new Date();
                         const defaultNameRaw = `Snapshot - ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
                         const defaultNameSafe = defaultNameRaw.replace(/:/g, '-').replace(/ /g, '_');
-                        snapshotName = prompt("Enter a name for the snapshot:", defaultNameSafe);
+                        const snapshotName = prompt("Enter a name for the snapshot:", defaultNameSafe);
                         
                         if (!snapshotName) return;
                         payload.snapshot_name = snapshotName;
@@ -215,7 +227,6 @@
 
                     const buttonGroup = button.parentElement;
                     buttonGroup.querySelectorAll('button').forEach(btn => btn.disabled = true);
-                    const originalText = button.textContent;
                     button.textContent = '...';
 
                     fetch('/api/vm/action', {
@@ -228,12 +239,13 @@
                         if (!ok) throw new Error(data.message || 'An unknown error occurred.');
                         
                         if (localStorage.getItem('vmRefreshInterval') === '0') {
-                            setTimeout(() => location.reload(), 1000);
+                            setTimeout(() => location.reload(), 500);
                         }
                     })
                     .catch(error => {
-                        alert(`Error: ${error.message}`);
-                        location.reload();
+                        console.error(`Error: ${error.message}`);
+                        button.textContent = "Error!";
+                        setTimeout(() => location.reload(), 2000);
                     });
                 }
             });
@@ -241,4 +253,5 @@
     </script>
 </body>
 </html>
+
 
