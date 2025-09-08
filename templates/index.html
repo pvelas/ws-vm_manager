@@ -42,8 +42,13 @@
 </head>
 <body class="p-4 sm:p-6 md:p-8">
     <div class="max-w-7xl mx-auto">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">Virtual Machine Dashboard</h1>
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+                Virtual Machine Dashboard
+                {% if is_gui_running %}
+                <span class="ml-4 text-lg font-semibold text-red-600">(Workstation GUI is Running)</span>
+                {% endif %}
+            </h1>
             <div class="flex items-center space-x-2">
                 <div class="flex items-center space-x-2">
                     <label for="refresh-interval" class="text-sm font-medium text-gray-700">Auto-refresh:</label>
@@ -88,9 +93,19 @@
                 {% if vm.snapshots %}
                 <div class="pt-2">
                     <h5 class="font-semibold text-gray-700 mb-1">Snapshots:</h5>
-                    <ul class="list-disc list-inside space-y-1">
+                    <ul class="space-y-2">
                         {% for snapshot in vm.snapshots %}
-                            <li><code class="bg-gray-100 p-1 rounded-md">{{ snapshot }}</code></li>
+                            <li class="flex items-center justify-between">
+                                <span class="flex items-center {% if snapshot == vm.active_snapshot %}font-bold text-blue-600{% endif %}">
+                                    {% if snapshot == vm.active_snapshot %}
+                                        <svg class="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                    {% endif %}
+                                    <code class="bg-gray-100 p-1 rounded-md text-xs">{{ snapshot }}</code>
+                                </span>
+                                <button type="button" data-action="revert" data-vmx="{{ vm.vmx_path }}" data-snapshot-name="{{ snapshot }}" class="text-gray-400 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed text-sm" {% if vm.complete %}disabled title="VM must be stopped to revert"{% else %}title="Revert to this snapshot"{% endif %}>
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+                                </button>
+                            </li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -147,11 +162,58 @@
             </div>
         </div>
     </div>
+    
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full flex items-center justify-center hidden z-50">
+        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Confirm Action</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500" id="modal-body">Are you sure you want to proceed?</p>
+                </div>
+                <div class="items-center px-4 py-3 space-x-4">
+                    <button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button id="modal-confirm" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         let refreshIntervalId = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            // --- MODAL HANDLING ---
+            const modal = document.getElementById('confirmationModal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const modalCancel = document.getElementById('modal-cancel');
+            const modalConfirm = document.getElementById('modal-confirm');
+            let confirmCallback = null;
+
+            function showModal(title, body, onConfirm) {
+                modalTitle.textContent = title;
+                modalBody.textContent = body;
+                confirmCallback = onConfirm;
+                modal.classList.remove('hidden');
+            }
+
+            function hideModal() {
+                modal.classList.add('hidden');
+                confirmCallback = null;
+            }
+
+            modalCancel.addEventListener('click', hideModal);
+            modalConfirm.addEventListener('click', () => {
+                if (typeof confirmCallback === 'function') {
+                    confirmCallback();
+                }
+                hideModal();
+            });
+
+
+            // --- COLLAPSIBLE SECTIONS ---
             const sections = [
                 { header: document.getElementById('online-vms-header'), content: document.getElementById('online-vms-content'), key: 'onlineVmsCollapsed' },
                 { header: document.getElementById('offline-vms-header'), content: document.getElementById('offline-vms-content'), key: 'offlineVmsCollapsed' }
@@ -170,17 +232,13 @@
                 });
             });
 
+            // --- REFRESH CONTROLS ---
             const refreshIntervalSelect = document.getElementById('refresh-interval');
             const refreshNowButton = document.getElementById('refresh-now');
             const fullRefreshNowButton = document.getElementById('full-refresh-now');
 
-            // Changed to navigate to the base URL, which strips any query parameters like ?full_refresh=true
-            refreshNowButton.addEventListener('click', () => {
-                window.location.href = '/';
-            });
-            fullRefreshNowButton.addEventListener('click', () => {
-                window.location.href = '/?full_refresh=true';
-            });
+            refreshNowButton.addEventListener('click', () => { window.location.href = '/'; });
+            fullRefreshNowButton.addEventListener('click', () => { window.location.href = '/?full_refresh=true'; });
 
             const savedInterval = localStorage.getItem('vmRefreshInterval') || '0';
             refreshIntervalSelect.value = savedInterval;
@@ -192,7 +250,6 @@
                 }
                 const intervalMs = parseInt(interval, 10) * 1000;
                 if (intervalMs > 0) {
-                    // Also changed to navigate to the base URL for auto-refresh
                     refreshIntervalId = setInterval(() => { window.location.href = '/'; }, intervalMs);
                 }
             }
@@ -205,53 +262,64 @@
                 setAutoRefresh(interval);
             });
             
+            // --- MAIN ACTION HANDLER ---
             document.body.addEventListener('click', function(event) {
                 const button = event.target.closest('button');
-                if (!button || button.id === 'refresh-now' || button.id === 'full-refresh-now') return;
+                if (!button || button.id === 'refresh-now' || button.id === 'full-refresh-now' || button.id.startsWith('modal-')) return;
 
                 const action = button.dataset.action;
                 const vmxPath = button.dataset.vmx;
+                let snapshotName = button.dataset.snapshotName;
 
                 if (action && vmxPath) {
-                    const payload = { vmx_path: vmxPath, action: action };
+                    const performFetch = (payload) => {
+                        const buttonGroup = button.closest('.flex-wrap');
+                        buttonGroup.querySelectorAll('button').forEach(btn => btn.disabled = true);
+                        button.innerHTML = '...';
+
+                        fetch('/api/vm/action', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        })
+                        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                        .then(({ ok, data }) => {
+                            if (!ok) throw new Error(data.message || 'An unknown error occurred.');
+                            if (localStorage.getItem('vmRefreshInterval') === '0') {
+                                setTimeout(() => location.reload(), 500);
+                            }
+                        })
+                        .catch(error => {
+                            console.error(`Error: ${error.message}`);
+                            button.innerHTML = "Error!";
+                            setTimeout(() => location.reload(), 2000);
+                        });
+                    };
+
+                    let payload = { vmx_path: vmxPath, action: action, snapshot_name: snapshotName };
 
                     if (action === 'snapshot') {
                         const now = new Date();
                         const defaultNameRaw = `Snapshot - ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
                         const defaultNameSafe = defaultNameRaw.replace(/:/g, '-').replace(/ /g, '_');
-                        const snapshotName = prompt("Enter a name for the snapshot:", defaultNameSafe);
+                        const snapshotNameInput = prompt("Enter a name for the snapshot:", defaultNameSafe);
                         
-                        if (!snapshotName) return;
-                        payload.snapshot_name = snapshotName;
+                        if (!snapshotNameInput) return;
+                        payload.snapshot_name = snapshotNameInput;
+                        performFetch(payload);
+                    } else if (action === 'revert') {
+                        showModal(
+                            'Confirm Revert', 
+                            `Are you sure you want to revert to snapshot "${snapshotName}"? The current state will be lost.`,
+                            () => performFetch(payload)
+                        );
+                    } else {
+                        performFetch(payload);
                     }
-
-                    const buttonGroup = button.parentElement;
-                    buttonGroup.querySelectorAll('button').forEach(btn => btn.disabled = true);
-                    button.textContent = '...';
-
-                    fetch('/api/vm/action', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(response => response.json().then(data => ({ ok: response.ok, data })))
-                    .then(({ ok, data }) => {
-                        if (!ok) throw new Error(data.message || 'An unknown error occurred.');
-                        
-                        if (localStorage.getItem('vmRefreshInterval') === '0') {
-                            setTimeout(() => location.reload(), 500);
-                        }
-                    })
-                    .catch(error => {
-                        console.error(`Error: ${error.message}`);
-                        button.textContent = "Error!";
-                        setTimeout(() => location.reload(), 2000);
-                    });
                 }
             });
         });
     </script>
 </body>
 </html>
-
 
