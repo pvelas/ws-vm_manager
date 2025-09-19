@@ -75,7 +75,7 @@ def check_vm_logs_for_errors(vmx_path):
     found_lines = []
     
     try:
-        log_files = glob.glob(os.path.join(vm_dir, '*.log'))
+        log_files = glob.glob(os.path.join(vm_dir, 'vmware.log'))
         for log_file in log_files:
             with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
                 for line in f:
