@@ -54,6 +54,23 @@
         .modal-content { background-color: var(--card-bg-color); }
         .modal-log-body { background-color: var(--bg-color); color: var(--text-color-secondary); }
     </style>
+    <script>
+        // Immediately invoked function to set the theme before the page renders
+        (function() {
+            const theme = localStorage.getItem('theme');
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                // Fallback to time-based if no theme is saved
+                const hour = new Date().getHours();
+                if (hour < 7 || hour >= 19) {
+                     document.documentElement.classList.add('dark');
+                }
+            }
+        })();
+    </script>
 </head>
 <body class="p-4 sm:p-6 md:p-8">
     <div class="max-w-7xl mx-auto">
@@ -171,22 +188,25 @@
                 }
             };
 
+            // This part is now handled by the script in the <head>,
+            // but we keep the event listener for the toggle switch.
+            // And we still need to set the initial state of the toggle itself.
             const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {
-                applyTheme(savedTheme);
-            } else {
                 const hour = new Date().getHours();
-                // Automatically set dark mode if it's evening/night (7 PM to 6 AM)
-                if (hour < 7 || hour >= 19) {
-                    applyTheme('dark');
-                    localStorage.setItem('theme', 'dark');
-                }
+            if (savedTheme === 'dark' || (!savedTheme && (hour < 7 || hour >= 19))) {
+                themeToggle.checked = true;
+            } else {
+                themeToggle.checked = false;
             }
             
             themeToggle.addEventListener('change', () => {
                 const newTheme = themeToggle.checked ? 'dark' : 'light';
                 localStorage.setItem('theme', newTheme);
-                applyTheme(newTheme);
+                if (newTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             });
 
 
