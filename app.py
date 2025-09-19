@@ -5,6 +5,7 @@ import time
 import logging
 import shutil
 import re
+import glob
 
 app = Flask(__name__)
 
@@ -66,6 +67,26 @@ def check_for_locks(vmx_path):
             if item.endswith('.lck'): return True
     except FileNotFoundError: return False
     return False
+
+def check_vm_logs_for_errors(vmx_path):
+    """Scans all .log files in a VM's directory for critical error keywords."""
+    vm_dir = os.path.dirname(vmx_path)
+    error_keywords = ['unrecoverable', 'panic', 'coredump']
+    found_lines = []
+    
+    try:
+        log_files = glob.glob(os.path.join(vm_dir, '*.log'))
+        for log_file in log_files:
+            with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    line_lower = line.lower()
+                    if any(keyword in line_lower for keyword in error_keywords):
+                        found_lines.append(line.strip())
+    except Exception as e:
+        logging.error(f"Error reading log files for {vmx_path}: {e}")
+
+    return {'count': len(found_lines), 'lines': found_lines}
+
 
 def manage_vm(vmx_path, action, snapshot_name=None):
     command = []
@@ -139,14 +160,20 @@ def get_all_vm_info(directories, force_refresh=False):
 
     for vmx in flat_vmx_list:
         current_time = time.time()
+        is_running = vmx in running_vm_paths
+
         if not force_refresh and vmx in vm_cache and (current_time - vm_cache[vmx]['timestamp']) < CACHE_DURATION_SECONDS:
             static_data = vm_cache[vmx]['data']
+            # If VM is running now, but wasn't when cached, we might need to re-check logs
+            if is_running and not static_data.get('was_running_when_cached', False):
+                 static_data['error_log_info'] = check_vm_logs_for_errors(vmx)
+                 static_data['was_running_when_cached'] = True
+                 vm_cache[vmx]['data'] = static_data # Update cache
         else:
             display_name, ethernet_devices = None, {}
             try:
                 with open(vmx, 'r', encoding='utf-8', errors='ignore') as f:
                     for line in f:
-                        # Convert line to lowercase for case-insensitive matching
                         line_lower = line.strip().lower()
                         if line_lower.startswith("displayname"):
                             parts = line.split("=", 1)
@@ -166,23 +193,20 @@ def get_all_vm_info(directories, force_refresh=False):
 
             vm_name = display_name if display_name else os.path.basename(vmx).split(".")[0]
             
-            # Post-process devices to normalize keys for the template
             processed_devices = {}
             for adapter_id, properties in ethernet_devices.items():
-                processed_devices[adapter_id] = {
-                    'vnet': properties.get('vnet'),
-                    'generatedAddress': properties.get('generatedaddress') # notice lowercase 'a'
-                }
+                processed_devices[adapter_id] = { 'vnet': properties.get('vnet'), 'generatedAddress': properties.get('generatedaddress')}
 
             static_data = {
                 "title": vm_name,
                 "ethernet_devices": processed_devices,
                 "snapshots": get_vm_snapshots(vmx),
-                "active_snapshot": get_active_snapshot(vmx)
+                "active_snapshot": get_active_snapshot(vmx),
+                "error_log_info": check_vm_logs_for_errors(vmx) if is_running else {'count': 0, 'lines': []},
+                "was_running_when_cached": is_running
             }
             vm_cache[vmx] = {'data': static_data, 'timestamp': current_time}
 
-        is_running = vmx in running_vm_paths
         has_locks = False if is_running else check_for_locks(vmx)
 
         ip_address = "N/A"
@@ -194,20 +218,21 @@ def get_all_vm_info(directories, force_refresh=False):
         details = [f"IPv4: {ip_address}"]
         for adapter_id in sorted(static_data['ethernet_devices'].keys()):
             device = static_data['ethernet_devices'][adapter_id]
-            mac = device.get('generatedAddress')
-            net_path = device.get('vnet')
+            mac, net_path = device.get('generatedAddress'), device.get('vnet')
             net_name = os.path.basename(net_path) if net_path else 'N/A'
             if mac: details.append(f"MAC {net_name}: {mac}")
         
-        lab_name_for_vm = "Unknown"
+        lab_name_for_vm = "Unknown";
         for lab, vmx_paths in all_vmx_files_by_lab.items():
             if vmx in vmx_paths: lab_name_for_vm = lab; break
 
+        # Use cached error log info if VM is now offline
+        error_info_to_display = static_data.get('error_log_info', {'count': 0, 'lines': []})
+
         all_vms.append({
-            "lab_name": lab_name_for_vm, "title": static_data['title'],
-            "complete": is_running, "has_locks": has_locks, "vmx_path": vmx,
-            "snapshots": static_data['snapshots'], "active_snapshot": static_data.get('active_snapshot'),
-            "details": details
+            "lab_name": lab_name_for_vm, "title": static_data['title'], "complete": is_running, "has_locks": has_locks,
+            "vmx_path": vmx, "snapshots": static_data['snapshots'], "active_snapshot": static_data.get('active_snapshot'),
+            "details": details, "error_log_info": error_info_to_display
         })
         
     return sorted(all_vms, key=lambda vm: (vm['lab_name'], vm['title']))
@@ -224,6 +249,21 @@ def index():
         if lab not in vm_data_by_lab: vm_data_by_lab[lab] = []
         vm_data_by_lab[lab].append(vm)
     return render_template("index.html", vm_data_by_lab=vm_data_by_lab, is_gui_running=is_gui_running)
+
+@app.route("/api/vm/logs", methods=['POST'])
+def api_vm_logs():
+    data = request.get_json()
+    vmx_path = data.get('vmx_path')
+    if not vmx_path:
+        return jsonify({'status': 'error', 'message': 'Missing vmx_path parameter'}), 400
+    try:
+        # We can re-run the check here to ensure we get the absolute latest logs
+        log_data = check_vm_logs_for_errors(vmx_path)
+        return jsonify({'status': 'success', 'logs': log_data['lines']})
+    except Exception as e:
+        logging.error(f"API Error on getting logs for {vmx_path}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 @app.route("/api/vm/action", methods=['POST'])
 def api_vm_action():

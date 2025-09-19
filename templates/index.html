@@ -7,33 +7,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f5f7;
-        }
-        .vm-card {
-            transition: all 0.3s ease-in-out;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-        .vm-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f4f5f7; }
+        .vm-card { transition: all 0.3s ease-in-out; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+        .vm-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
         .btn { transition: background-color 0.2s; }
-        .btn-start { background-color: #22c55e; color: white; }
-        .btn-start:hover { background-color: #16a34a; }
-        .btn-stop { background-color: #ef4444; color: white; }
-        .btn-stop:hover { background-color: #dc2626; }
-        .btn-restart { background-color: #f97316; color: white; }
-        .btn-restart:hover { background-color: #ea580c; }
-        .btn-snapshot { background-color: #3b82f6; color: white; }
-        .btn-snapshot:hover { background-color: #2563eb; }
-        .btn-clean { background-color: #f59e0b; color: white; }
-        .btn-clean:hover { background-color: #d97706; }
+        .btn-start { background-color: #22c55e; color: white; } .btn-start:hover { background-color: #16a34a; }
+        .btn-stop { background-color: #ef4444; color: white; } .btn-stop:hover { background-color: #dc2626; }
+        .btn-restart { background-color: #f97316; color: white; } .btn-restart:hover { background-color: #ea580c; }
+        .btn-snapshot { background-color: #3b82f6; color: white; } .btn-snapshot:hover { background-color: #2563eb; }
+        .btn-clean { background-color: #ca8a04; color: white; } .btn-clean:hover { background-color: #a16207; }
+        .btn-errors { background-color: #f59e0b; color: white; } .btn-errors:hover { background-color: #d97706; }
         .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
         .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-        .status-online { background-color: #22c55e; }
-        .status-offline { background-color: #ef4444; }
+        .status-online { background-color: #22c55e; } .status-offline { background-color: #ef4444; }
         .lab-title { color: #4b5563; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 1rem; }
         .collapsible-header { cursor: pointer; user-select: none; }
         .chevron { transition: transform 0.2s ease-in-out; }
@@ -50,15 +36,10 @@
                 {% endif %}
             </h1>
             <div class="flex items-center space-x-2">
-                <div class="flex items-center space-x-2">
-                    <label for="refresh-interval" class="text-sm font-medium text-gray-700">Auto-refresh:</label>
-                    <select id="refresh-interval" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
-                        <option value="0">Off</option>
-                        <option value="15">15s</option>
-                        <option value="30">30s</option>
-                        <option value="60">60s</option>
-                    </select>
-                </div>
+                <label for="refresh-interval" class="text-sm font-medium text-gray-700">Auto-refresh:</label>
+                <select id="refresh-interval" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
+                    <option value="0">Off</option> <option value="15">15s</option> <option value="30">30s</option> <option value="60">60s</option>
+                </select>
                 <button id="refresh-now" class="btn btn-snapshot font-semibold py-2 px-4 rounded-md text-sm">Refresh</button>
                 <button id="full-refresh-now" class="btn btn-restart font-semibold py-2 px-4 rounded-md text-sm">Full Refresh</button>
             </div>
@@ -66,46 +47,41 @@
 
         {% macro render_vm_card(vm) %}
         <div class="vm-card bg-white rounded-lg p-5 border border-gray-200">
-            <div class="flex justify-between items-start">
-                <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                    <span class="status-dot mr-3 {% if vm.complete %}status-online{% else %}status-offline{% endif %}"></span>
-                    {{ vm.title }}
-                </h4>
-            </div>
+            <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                <span class="status-dot mr-3 {% if vm.complete %}status-online{% else %}status-offline{% endif %}"></span>
+                {{ vm.title }}
+            </h4>
 
             <div class="flex items-center space-x-2 mb-4 pb-4 border-b border-gray-200 flex-wrap gap-2">
                 <button type="button" data-action="start" data-vmx="{{ vm.vmx_path }}" class="btn btn-start font-semibold py-2 px-4 rounded-md text-sm" {% if vm.complete %}disabled{% endif %}>Start</button>
                 <button type="button" data-action="stop" data-vmx="{{ vm.vmx_path }}" class="btn btn-stop font-semibold py-2 px-4 rounded-md text-sm" {% if not vm.complete %}disabled{% endif %}>Stop</button>
                 <button type="button" data-action="restart" data-vmx="{{ vm.vmx_path }}" class="btn btn-restart font-semibold py-2 px-4 rounded-md text-sm" {% if not vm.complete %}disabled{% endif %}>Restart</button>
                 <button type="button" data-action="snapshot" data-vmx="{{ vm.vmx_path }}" class="btn btn-snapshot font-semibold py-2 px-4 rounded-md text-sm">Snapshot</button>
-                
                 {% if not vm.complete and vm.has_locks %}
                 <button type="button" data-action="clean_locks" data-vmx="{{ vm.vmx_path }}" class="btn btn-clean font-semibold py-2 px-4 rounded-md text-sm">Clean Locks</button>
+                {% endif %}
+                {% if vm.error_log_info and vm.error_log_info.count > 0 %}
+                <button type="button" data-action="view_errors" data-vmx="{{ vm.vmx_path }}" data-vm-name="{{ vm.title }}" class="btn btn-errors font-semibold py-2 px-4 rounded-md text-sm">View Errors ({{ vm.error_log_info.count }})</button>
                 {% endif %}
             </div>
 
             <div class="text-sm text-gray-600 space-y-2">
                 <h5 class="font-semibold text-gray-700 mb-1">Information:</h5>
-                {% for detail in vm.details %}
-                    <p><code class="bg-gray-100 p-1 rounded-md">{{ detail }}</code></p>
-                {% endfor %}
-
+                {% for detail in vm.details %} <p><code class="bg-gray-100 p-1 rounded-md">{{ detail }}</code></p> {% endfor %}
                 {% if vm.snapshots %}
                 <div class="pt-2">
                     <h5 class="font-semibold text-gray-700 mb-1">Snapshots:</h5>
                     <ul class="space-y-2">
                         {% for snapshot in vm.snapshots %}
-                            <li class="flex items-center justify-between">
-                                <span class="flex items-center {% if snapshot == vm.active_snapshot %}font-bold text-blue-600{% endif %}">
-                                    {% if snapshot == vm.active_snapshot %}
-                                        <svg class="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                                    {% endif %}
-                                    <code class="bg-gray-100 p-1 rounded-md text-xs">{{ snapshot }}</code>
-                                </span>
-                                <button type="button" data-action="revert" data-vmx="{{ vm.vmx_path }}" data-snapshot-name="{{ snapshot }}" class="text-gray-400 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed text-sm" {% if vm.complete %}disabled title="VM must be stopped to revert"{% else %}title="Revert to this snapshot"{% endif %}>
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
-                                </button>
-                            </li>
+                        <li class="flex items-center justify-between">
+                            <span class="flex items-center {% if snapshot == vm.active_snapshot %}font-bold text-blue-600{% endif %}">
+                                {% if snapshot == vm.active_snapshot %}<svg class="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>{% endif %}
+                                <code class="bg-gray-100 p-1 rounded-md text-xs">{{ snapshot }}</code>
+                            </span>
+                            <button type="button" data-action="revert" data-vmx="{{ vm.vmx_path }}" data-snapshot-name="{{ snapshot }}" class="text-gray-400 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed text-sm" {% if vm.complete %}disabled title="VM must be stopped to revert"{% else %}title="Revert to this snapshot"{% endif %}>
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+                            </button>
+                        </li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -114,67 +90,30 @@
         </div>
         {% endmacro %}
 
-        <!-- Online VMs Section -->
-        <div class="mb-8">
-            <div id="online-vms-header" class="collapsible-header flex items-center mb-4">
-                <h2 class="text-2xl font-bold text-green-600">Online VMs</h2>
-                <svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-            </div>
-            <div id="online-vms-content">
-                {% for lab_name, vms in vm_data_by_lab.items() %}
-                    <div class="mb-8">
-                        <h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {% for vm in vms %}
-                                {% if vm.complete %}
-                                    {{ render_vm_card(vm) }}
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
+        <div id="online-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-green-600">Online VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
+        <div id="online-vms-content">
+            {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6">{% for vm in vms %}{% if vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
         </div>
 
-        <!-- Offline VMs Section -->
-        <div class="mt-12">
-            <div id="offline-vms-header" class="collapsible-header flex items-center mb-4">
-                 <h2 class="text-2xl font-bold text-red-600">Offline VMs</h2>
-                 <svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-            </div>
+        <div class="mt-12"><div id="offline-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-red-600">Offline VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
             <div id="offline-vms-content">
-                {% for lab_name, vms in vm_data_by_lab.items() %}
-                    <div class="mb-8">
-                        <h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {% for vm in vms %}
-                                {% if not vm.complete %}
-                                    {{ render_vm_card(vm) }}
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endfor %}
+                {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6">{% for vm in vms %}{% if not vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
             </div>
         </div>
     </div>
     
     <!-- Confirmation Modal -->
-    <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full flex items-center justify-center hidden z-50">
-        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <div class="text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Confirm Action</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500" id="modal-body">Are you sure you want to proceed?</p>
-                </div>
-                <div class="items-center px-4 py-3 space-x-4">
-                    <button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button id="modal-confirm" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
-                </div>
+    <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full flex items-center justify-center hidden z-50"><div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white"><div class="text-center"><h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Confirm Action</h3><div class="mt-2 px-7 py-3"><p class="text-sm text-gray-500" id="modal-body">Are you sure?</p></div><div class="items-center px-4 py-3 space-x-4"><button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button><button id="modal-confirm" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button></div></div></div></div>
+    
+    <!-- Log Viewer Modal -->
+    <div id="logViewerModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 h-full w-full flex items-center justify-center hidden z-50">
+        <div class="relative mx-auto p-6 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <h3 class="text-xl leading-6 font-medium text-gray-900" id="log-modal-title">Error Logs</h3>
+            <div class="mt-4" style="max-height: 60vh; overflow-y: auto;">
+                <pre><code id="log-modal-body" class="text-xs text-gray-700 whitespace-pre-wrap break-all"></code></pre>
+            </div>
+            <div class="items-center text-right px-4 py-3 mt-4">
+                <button id="log-modal-close" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Close</button>
             </div>
         </div>
     </div>
@@ -182,139 +121,76 @@
 
     <script>
         let refreshIntervalId = null;
-
         document.addEventListener('DOMContentLoaded', () => {
-            // --- MODAL HANDLING ---
-            const modal = document.getElementById('confirmationModal');
-            const modalTitle = document.getElementById('modal-title');
-            const modalBody = document.getElementById('modal-body');
-            const modalCancel = document.getElementById('modal-cancel');
-            const modalConfirm = document.getElementById('modal-confirm');
-            let confirmCallback = null;
+            // --- MODAL HANDLING (Generic) ---
+            const confirmationModal = { el: document.getElementById('confirmationModal'), title: document.getElementById('modal-title'), body: document.getElementById('modal-body'), cancel: document.getElementById('modal-cancel'), confirm: document.getElementById('modal-confirm'), callback: null };
+            const logModal = { el: document.getElementById('logViewerModal'), title: document.getElementById('log-modal-title'), body: document.getElementById('log-modal-body'), close: document.getElementById('log-modal-close') };
 
-            function showModal(title, body, onConfirm) {
-                modalTitle.textContent = title;
-                modalBody.textContent = body;
-                confirmCallback = onConfirm;
-                modal.classList.remove('hidden');
-            }
+            function showConfirmationModal(title, body, onConfirm) { confirmationModal.title.textContent = title; confirmationModal.body.textContent = body; confirmationModal.callback = onConfirm; confirmationModal.el.classList.remove('hidden'); }
+            function hideConfirmationModal() { confirmationModal.el.classList.add('hidden'); confirmationModal.callback = null; }
+            confirmationModal.cancel.addEventListener('click', hideConfirmationModal);
+            confirmationModal.confirm.addEventListener('click', () => { if (typeof confirmationModal.callback === 'function') confirmationModal.callback(); hideConfirmationModal(); });
 
-            function hideModal() {
-                modal.classList.add('hidden');
-                confirmCallback = null;
-            }
-
-            modalCancel.addEventListener('click', hideModal);
-            modalConfirm.addEventListener('click', () => {
-                if (typeof confirmCallback === 'function') {
-                    confirmCallback();
-                }
-                hideModal();
-            });
-
+            function showLogModal(title, logLines) { logModal.title.textContent = `Error Logs for: ${title}`; logModal.body.textContent = logLines.length > 0 ? logLines.join('\n') : 'No errors found.'; logModal.el.classList.remove('hidden'); }
+            function hideLogModal() { logModal.el.classList.add('hidden'); }
+            logModal.close.addEventListener('click', hideLogModal);
 
             // --- COLLAPSIBLE SECTIONS ---
-            const sections = [
-                { header: document.getElementById('online-vms-header'), content: document.getElementById('online-vms-content'), key: 'onlineVmsCollapsed' },
-                { header: document.getElementById('offline-vms-header'), content: document.getElementById('offline-vms-content'), key: 'offlineVmsCollapsed' }
-            ];
-
-            sections.forEach(section => {
-                if (localStorage.getItem(section.key) === 'true') {
-                    section.content.classList.add('hidden');
-                    section.header.classList.add('collapsed');
-                }
-
-                section.header.addEventListener('click', () => {
-                    section.content.classList.toggle('hidden');
-                    section.header.classList.toggle('collapsed');
-                    localStorage.setItem(section.key, section.header.classList.contains('collapsed'));
-                });
-            });
+            const sections = [{ header: document.getElementById('online-vms-header'), content: document.getElementById('online-vms-content'), key: 'onlineVmsCollapsed' }, { header: document.getElementById('offline-vms-header'), content: document.getElementById('offline-vms-content'), key: 'offlineVmsCollapsed' }];
+            sections.forEach(s => { if (localStorage.getItem(s.key) === 'true') { s.content.classList.add('hidden'); s.header.classList.add('collapsed'); } s.header.addEventListener('click', () => { s.content.classList.toggle('hidden'); s.header.classList.toggle('collapsed'); localStorage.setItem(s.key, s.header.classList.contains('collapsed')); }); });
 
             // --- REFRESH CONTROLS ---
-            const refreshIntervalSelect = document.getElementById('refresh-interval');
-            const refreshNowButton = document.getElementById('refresh-now');
-            const fullRefreshNowButton = document.getElementById('full-refresh-now');
-
+            const refreshIntervalSelect = document.getElementById('refresh-interval'), refreshNowButton = document.getElementById('refresh-now'), fullRefreshNowButton = document.getElementById('full-refresh-now');
             refreshNowButton.addEventListener('click', () => { window.location.href = '/'; });
             fullRefreshNowButton.addEventListener('click', () => { window.location.href = '/?full_refresh=true'; });
-
             const savedInterval = localStorage.getItem('vmRefreshInterval') || '0';
             refreshIntervalSelect.value = savedInterval;
-
-            function setAutoRefresh(interval) {
-                if (refreshIntervalId) {
-                    clearInterval(refreshIntervalId);
-                    refreshIntervalId = null;
-                }
-                const intervalMs = parseInt(interval, 10) * 1000;
-                if (intervalMs > 0) {
-                    refreshIntervalId = setInterval(() => { window.location.href = '/'; }, intervalMs);
-                }
-            }
-
+            function setAutoRefresh(interval) { if (refreshIntervalId) clearInterval(refreshIntervalId); const intervalMs = parseInt(interval, 10) * 1000; if (intervalMs > 0) refreshIntervalId = setInterval(() => { window.location.href = '/'; }, intervalMs); }
             setAutoRefresh(savedInterval);
-
-            refreshIntervalSelect.addEventListener('change', (e) => {
-                const interval = e.target.value;
-                localStorage.setItem('vmRefreshInterval', interval);
-                setAutoRefresh(interval);
-            });
+            refreshIntervalSelect.addEventListener('change', (e) => { const i = e.target.value; localStorage.setItem('vmRefreshInterval', i); setAutoRefresh(i); });
             
             // --- MAIN ACTION HANDLER ---
             document.body.addEventListener('click', function(event) {
-                const button = event.target.closest('button');
-                if (!button || button.id === 'refresh-now' || button.id === 'full-refresh-now' || button.id.startsWith('modal-')) return;
+                const button = event.target.closest('button[data-action]');
+                if (!button || button.id.startsWith('modal-') || button.id.startsWith('log-modal-')) return;
 
-                const action = button.dataset.action;
-                const vmxPath = button.dataset.vmx;
-                let snapshotName = button.dataset.snapshotName;
+                const action = button.dataset.action, vmxPath = button.dataset.vmx;
+                let snapshotName = button.dataset.snapshotName, vmName = button.dataset.vmName;
 
                 if (action && vmxPath) {
-                    const performFetch = (payload) => {
-                        const buttonGroup = button.closest('.flex-wrap');
-                        buttonGroup.querySelectorAll('button').forEach(btn => btn.disabled = true);
-                        button.innerHTML = '...';
-
-                        fetch('/api/vm/action', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        })
-                        .then(response => response.json().then(data => ({ ok: response.ok, data })))
-                        .then(({ ok, data }) => {
-                            if (!ok) throw new Error(data.message || 'An unknown error occurred.');
-                            if (localStorage.getItem('vmRefreshInterval') === '0') {
-                                setTimeout(() => location.reload(), 500);
-                            }
-                        })
-                        .catch(error => {
-                            console.error(`Error: ${error.message}`);
-                            button.innerHTML = "Error!";
-                            setTimeout(() => location.reload(), 2000);
-                        });
+                    const performFetch = (payload, btn) => {
+                        const buttonGroup = btn.closest('.flex-wrap');
+                        if (buttonGroup) buttonGroup.querySelectorAll('button').forEach(b => b.disabled = true); else btn.disabled = true;
+                        btn.innerHTML = '...';
+                        fetch('/api/vm/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                            .then(({ ok, data }) => { if (!ok) throw new Error(data.message || 'Unknown error'); if (localStorage.getItem('vmRefreshInterval') === '0') setTimeout(() => location.reload(), 500); })
+                            .catch(err => { console.error(`Error: ${err.message}`); btn.innerHTML = "Error!"; setTimeout(() => location.reload(), 2000); });
                     };
-
-                    let payload = { vmx_path: vmxPath, action: action, snapshot_name: snapshotName };
-
-                    if (action === 'snapshot') {
-                        const now = new Date();
-                        const defaultNameRaw = `Snapshot - ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-                        const defaultNameSafe = defaultNameRaw.replace(/:/g, '-').replace(/ /g, '_');
-                        const snapshotNameInput = prompt("Enter a name for the snapshot:", defaultNameSafe);
-                        
-                        if (!snapshotNameInput) return;
-                        payload.snapshot_name = snapshotNameInput;
-                        performFetch(payload);
-                    } else if (action === 'revert') {
-                        showModal(
-                            'Confirm Revert', 
-                            `Are you sure you want to revert to snapshot "${snapshotName}"? The current state will be lost.`,
-                            () => performFetch(payload)
-                        );
+                    
+                    if (action === 'view_errors') {
+                        button.innerHTML = '...';
+                        fetch('/api/vm/logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vmx_path: vmxPath })})
+                            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                            .then(({ok, data}) => {
+                                if (!ok) throw new Error(data.message);
+                                showLogModal(vmName, data.logs);
+                                button.innerHTML = `View Errors (${data.logs.length})`;
+                            })
+                            .catch(err => { console.error(`Error fetching logs: ${err.message}`); button.innerHTML = 'Error!'; });
                     } else {
-                        performFetch(payload);
+                        let payload = { vmx_path: vmxPath, action: action, snapshot_name: snapshotName };
+                        if (action === 'snapshot') {
+                            const now = new Date(), defaultNameSafe = `Snapshot-${now.toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-')}`;
+                            const snapshotNameInput = prompt("Enter snapshot name:", defaultNameSafe);
+                            if (!snapshotNameInput) return;
+                            payload.snapshot_name = snapshotNameInput;
+                            performFetch(payload, button);
+                        } else if (action === 'revert') {
+                            showConfirmationModal('Confirm Revert', `Revert to snapshot "${snapshotName}"? The current state will be lost.`, () => performFetch(payload, button));
+                        } else {
+                            performFetch(payload, button);
+                        }
                     }
                 }
             });
