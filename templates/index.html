@@ -7,8 +7,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f4f5f7; }
-        .vm-card { transition: all 0.3s ease-in-out; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+        :root {
+            --bg-color: #f4f5f7;
+            --card-bg-color: #ffffff;
+            --text-color-primary: #1f2937;
+            --text-color-secondary: #4b5563;
+            --text-color-code: #374151;
+            --code-bg-color: #f3f4f6;
+            --border-color: #e5e7eb;
+            --header-text-color: #111827;
+            --lab-title-color: #4b5563;
+        }
+
+        html.dark {
+            --bg-color: #111827;
+            --card-bg-color: #1f2937;
+            --text-color-primary: #f9fafb;
+            --text-color-secondary: #9ca3af;
+            --text-color-code: #d1d5db;
+            --code-bg-color: #374151;
+            --border-color: #374151;
+            --header-text-color: #f9fafb;
+            --lab-title-color: #d1d5db;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color-primary); }
+        .vm-card { background-color: var(--card-bg-color); border-color: var(--border-color); transition: all 0.3s ease-in-out; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
         .vm-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
         .btn { transition: background-color 0.2s; }
         .btn-start { background-color: #22c55e; color: white; } .btn-start:hover { background-color: #16a34a; }
@@ -17,26 +41,40 @@
         .btn-snapshot { background-color: #3b82f6; color: white; } .btn-snapshot:hover { background-color: #2563eb; }
         .btn-clean { background-color: #ca8a04; color: white; } .btn-clean:hover { background-color: #a16207; }
         .btn-errors { background-color: #f59e0b; color: white; } .btn-errors:hover { background-color: #d97706; }
-        .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        .btn:disabled { background-color: #4b5563; color: #9ca3af; cursor: not-allowed; }
         .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
         .status-online { background-color: #22c55e; } .status-offline { background-color: #ef4444; }
-        .lab-title { color: #4b5563; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 1rem; }
+        .lab-title { color: var(--lab-title-color); border-bottom: 2px solid var(--border-color); padding-bottom: 8px; margin-bottom: 1rem; }
         .collapsible-header { cursor: pointer; user-select: none; }
         .chevron { transition: transform 0.2s ease-in-out; }
         .collapsed .chevron { transform: rotate(-90deg); }
+        h1, h2, h3, h4, h5, h6 { color: var(--header-text-color); }
+        code { background-color: var(--code-bg-color); color: var(--text-color-code); }
+        select { background-color: var(--card-bg-color); color: var(--text-color-primary); border-color: var(--border-color); }
+        .modal-content { background-color: var(--card-bg-color); }
+        .modal-log-body { background-color: var(--bg-color); color: var(--text-color-secondary); }
     </style>
 </head>
 <body class="p-4 sm:p-6 md:p-8">
     <div class="max-w-7xl mx-auto">
         <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
-            <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+            <h1 class="text-3xl font-bold flex items-center">
                 Virtual Machine Dashboard
                 {% if is_gui_running %}
                 <span class="ml-4 text-lg font-semibold text-red-600">(Workstation GUI is Running)</span>
                 {% endif %}
             </h1>
-            <div class="flex items-center space-x-2">
-                <label for="refresh-interval" class="text-sm font-medium text-gray-700">Auto-refresh:</label>
+            <div class="flex items-center space-x-4">
+                 <!-- Theme Switcher -->
+                <div class="flex items-center">
+                    <span class="text-sm font-medium mr-2 text-gray-500 dark:text-gray-400">☀️</span>
+                    <label for="theme-toggle" class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" value="" id="theme-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                    <span class="text-sm font-medium ml-2 text-gray-500 dark:text-gray-400">🌙</span>
+                </div>
+                <label for="refresh-interval" class="text-sm font-medium text-gray-500 dark:text-gray-400">Auto-refresh:</label>
                 <select id="refresh-interval" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm">
                     <option value="0">Off</option> <option value="15">15s</option> <option value="30">30s</option> <option value="60">60s</option>
                 </select>
@@ -46,13 +84,13 @@
         </div>
 
         {% macro render_vm_card(vm) %}
-        <div class="vm-card bg-white rounded-lg p-5 border border-gray-200">
-            <h4 class="text-lg font-bold text-gray-900 mb-3 flex items-center">
+        <div class="vm-card bg-white rounded-lg p-5 border">
+            <h4 class="text-lg font-bold mb-3 flex items-center">
                 <span class="status-dot mr-3 {% if vm.complete %}status-online{% else %}status-offline{% endif %}"></span>
                 {{ vm.title }}
             </h4>
 
-            <div class="flex items-center space-x-2 mb-4 pb-4 border-b border-gray-200 flex-wrap gap-2">
+            <div class="flex items-center space-x-2 mb-4 pb-4 border-b flex-wrap gap-2" style="border-color: var(--border-color);">
                 <button type="button" data-action="start" data-vmx="{{ vm.vmx_path }}" class="btn btn-start font-semibold py-2 px-4 rounded-md text-sm" {% if vm.complete %}disabled{% endif %}>Start</button>
                 <button type="button" data-action="stop" data-vmx="{{ vm.vmx_path }}" class="btn btn-stop font-semibold py-2 px-4 rounded-md text-sm" {% if not vm.complete %}disabled{% endif %}>Stop</button>
                 <button type="button" data-action="restart" data-vmx="{{ vm.vmx_path }}" class="btn btn-restart font-semibold py-2 px-4 rounded-md text-sm" {% if not vm.complete %}disabled{% endif %}>Restart</button>
@@ -65,20 +103,20 @@
                 {% endif %}
             </div>
 
-            <div class="text-sm text-gray-600 space-y-2">
-                <h5 class="font-semibold text-gray-700 mb-1">Information:</h5>
-                {% for detail in vm.details %} <p><code class="bg-gray-100 p-1 rounded-md">{{ detail }}</code></p> {% endfor %}
+            <div class="text-sm space-y-2" style="color: var(--text-color-secondary);">
+                <h5 class="font-semibold mb-1" style="color: var(--text-color-primary);">Information:</h5>
+                {% for detail in vm.details %} <p><code>{{ detail }}</code></p> {% endfor %}
                 {% if vm.snapshots %}
                 <div class="pt-2">
-                    <h5 class="font-semibold text-gray-700 mb-1">Snapshots:</h5>
+                    <h5 class="font-semibold mb-1" style="color: var(--text-color-primary);">Snapshots:</h5>
                     <ul class="space-y-2">
                         {% for snapshot in vm.snapshots %}
                         <li class="flex items-center justify-between">
-                            <span class="flex items-center {% if snapshot == vm.active_snapshot %}font-bold text-blue-600{% endif %}">
+                            <span class="flex items-center {% if snapshot == vm.active_snapshot %}font-bold text-blue-500 dark:text-blue-400{% endif %}">
                                 {% if snapshot == vm.active_snapshot %}<svg class="w-4 h-4 mr-2 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>{% endif %}
-                                <code class="bg-gray-100 p-1 rounded-md text-xs">{{ snapshot }}</code>
+                                <code class="text-xs">{{ snapshot }}</code>
                             </span>
-                            <button type="button" data-action="revert" data-vmx="{{ vm.vmx_path }}" data-snapshot-name="{{ snapshot }}" class="text-gray-400 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed text-sm" {% if vm.complete %}disabled title="VM must be stopped to revert"{% else %}title="Revert to this snapshot"{% endif %}>
+                            <button type="button" data-action="revert" data-vmx="{{ vm.vmx_path }}" data-snapshot-name="{{ snapshot }}" class="text-gray-400 hover:text-blue-600 disabled:text-gray-500 disabled:cursor-not-allowed text-sm" {% if vm.complete %}disabled title="VM must be stopped to revert"{% else %}title="Revert to this snapshot"{% endif %}>
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
                             </button>
                         </li>
@@ -103,14 +141,14 @@
     </div>
     
     <!-- Confirmation Modal -->
-    <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full flex items-center justify-center hidden z-50"><div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white"><div class="text-center"><h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">Confirm Action</h3><div class="mt-2 px-7 py-3"><p class="text-sm text-gray-500" id="modal-body">Are you sure?</p></div><div class="items-center px-4 py-3 space-x-4"><button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button><button id="modal-confirm" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button></div></div></div></div>
+    <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full flex items-center justify-center hidden z-50"><div class="modal-content relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md"><div class="text-center"><h3 class="text-lg leading-6 font-medium" id="modal-title">Confirm Action</h3><div class="mt-2 px-7 py-3"><p class="text-sm" id="modal-body" style="color: var(--text-color-secondary);">Are you sure?</p></div><div class="items-center px-4 py-3 space-x-4"><button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button><button id="modal-confirm" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button></div></div></div></div>
     
     <!-- Log Viewer Modal -->
     <div id="logViewerModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 h-full w-full flex items-center justify-center hidden z-50">
-        <div class="relative mx-auto p-6 border w-full max-w-4xl shadow-lg rounded-md bg-white">
-            <h3 class="text-xl leading-6 font-medium text-gray-900" id="log-modal-title">Error Logs</h3>
+        <div class="modal-content relative mx-auto p-6 border w-full max-w-4xl shadow-lg rounded-md">
+            <h3 class="text-xl leading-6 font-medium" id="log-modal-title">Error Logs</h3>
             <div class="mt-4" style="max-height: 60vh; overflow-y: auto;">
-                <pre><code id="log-modal-body" class="text-xs text-gray-700 whitespace-pre-wrap break-all"></code></pre>
+                <pre><code id="log-modal-body" class="modal-log-body text-xs whitespace-pre-wrap break-all p-4 rounded-md"></code></pre>
             </div>
             <div class="items-center text-right px-4 py-3 mt-4">
                 <button id="log-modal-close" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Close</button>
@@ -118,10 +156,40 @@
         </div>
     </div>
 
-
     <script>
         let refreshIntervalId = null;
         document.addEventListener('DOMContentLoaded', () => {
+            // --- THEME HANDLING ---
+            const themeToggle = document.getElementById('theme-toggle');
+            const applyTheme = (theme) => {
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    themeToggle.checked = true;
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    themeToggle.checked = false;
+                }
+            };
+
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            } else {
+                const hour = new Date().getHours();
+                // Automatically set dark mode if it's evening/night (7 PM to 6 AM)
+                if (hour < 7 || hour >= 19) {
+                    applyTheme('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            }
+            
+            themeToggle.addEventListener('change', () => {
+                const newTheme = themeToggle.checked ? 'dark' : 'light';
+                localStorage.setItem('theme', newTheme);
+                applyTheme(newTheme);
+            });
+
+
             // --- MODAL HANDLING (Generic) ---
             const confirmationModal = { el: document.getElementById('confirmationModal'), title: document.getElementById('modal-title'), body: document.getElementById('modal-body'), cancel: document.getElementById('modal-cancel'), confirm: document.getElementById('modal-confirm'), callback: null };
             const logModal = { el: document.getElementById('logViewerModal'), title: document.getElementById('log-modal-title'), body: document.getElementById('log-modal-body'), close: document.getElementById('log-modal-close') };
