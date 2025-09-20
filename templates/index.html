@@ -147,12 +147,12 @@
 
         <div id="online-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-green-600">Online VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
         <div id="online-vms-content">
-            {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6">{% for vm in vms %}{% if vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
+            {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{% for vm in vms %}{% if vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
         </div>
 
         <div class="mt-12"><div id="offline-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-red-600">Offline VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
             <div id="offline-vms-content">
-                {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6">{% for vm in vms %}{% if not vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
+                {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{% for vm in vms %}{% if not vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
             </div>
         </div>
     </div>
