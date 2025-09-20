@@ -63,7 +63,6 @@
             } else if (theme === 'light') {
                 document.documentElement.classList.remove('dark');
             } else {
-                // Fallback to time-based if no theme is saved
                 const hour = new Date().getHours();
                 if (hour < 7 || hour >= 19) {
                      document.documentElement.classList.add('dark');
@@ -82,12 +81,20 @@
                 {% endif %}
             </h1>
             <div class="flex items-center space-x-4">
+                 <!-- View Mode Switcher -->
+                <div class="flex items-center text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <label for="view-mode-toggle" class="mr-2">Compact View</label>
+                    <input type="checkbox" id="view-mode-toggle" class="sr-only peer">
+                    <label for="view-mode-toggle" class="relative inline-flex items-center cursor-pointer">
+                        <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
                  <!-- Theme Switcher -->
                 <div class="flex items-center">
                     <span class="text-sm font-medium mr-2 text-gray-500 dark:text-gray-400">☀️</span>
                     <label for="theme-toggle" class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" value="" id="theme-toggle" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                     </label>
                     <span class="text-sm font-medium ml-2 text-gray-500 dark:text-gray-400">🌙</span>
                 </div>
@@ -145,60 +152,68 @@
         </div>
         {% endmacro %}
 
-        <div id="online-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-green-600">Online VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
-        <div id="online-vms-content">
-            {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{% for vm in vms %}{% if vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
+        <div id="full-view">
+            <div id="online-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-green-600">Online VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
+            <div id="online-vms-content">
+                {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{% for vm in vms %}{% if vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
+            </div>
+
+            <div class="mt-12"><div id="offline-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-red-600">Offline VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
+                <div id="offline-vms-content">
+                    {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{% for vm in vms %}{% if not vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
+                </div>
+            </div>
         </div>
 
-        <div class="mt-12"><div id="offline-vms-header" class="collapsible-header flex items-center mb-4"><h2 class="text-2xl font-bold text-red-600">Offline VMs</h2><svg class="chevron ml-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
-            <div id="offline-vms-content">
-                {% for lab_name, vms in vm_data_by_lab.items() %}<div class="mb-8"><h3 class="text-xl font-semibold lab-title">{{ lab_name }}</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{% for vm in vms %}{% if not vm.complete %}{{ render_vm_card(vm) }}{% endif %}{% endfor %}</div></div>{% endfor %}
+        <div id="compact-view" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for vm in all_vms %}
+                    {{ render_vm_card(vm) }}
+                {% endfor %}
             </div>
         </div>
+
     </div>
     
-    <!-- Confirmation Modal -->
+    <!-- Modals -->
     <div id="confirmationModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full flex items-center justify-center hidden z-50"><div class="modal-content relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md"><div class="text-center"><h3 class="text-lg leading-6 font-medium" id="modal-title">Confirm Action</h3><div class="mt-2 px-7 py-3"><p class="text-sm" id="modal-body" style="color: var(--text-color-secondary);">Are you sure?</p></div><div class="items-center px-4 py-3 space-x-4"><button id="modal-cancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button><button id="modal-confirm" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button></div></div></div></div>
-    
-    <!-- Log Viewer Modal -->
-    <div id="logViewerModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 h-full w-full flex items-center justify-center hidden z-50">
-        <div class="modal-content relative mx-auto p-6 border w-full max-w-4xl shadow-lg rounded-md">
-            <h3 class="text-xl leading-6 font-medium" id="log-modal-title">Error Logs</h3>
-            <div class="mt-4" style="max-height: 60vh; overflow-y: auto;">
-                <pre><code id="log-modal-body" class="modal-log-body text-xs whitespace-pre-wrap break-all p-4 rounded-md"></code></pre>
-            </div>
-            <div class="items-center text-right px-4 py-3 mt-4">
-                <button id="log-modal-close" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Close</button>
-            </div>
-        </div>
-    </div>
+    <div id="logViewerModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 h-full w-full flex items-center justify-center hidden z-50"><div class="modal-content relative mx-auto p-6 border w-full max-w-4xl shadow-lg rounded-md"><h3 class="text-xl leading-6 font-medium" id="log-modal-title">Error Logs</h3><div class="mt-4" style="max-height: 60vh; overflow-y: auto;"><pre><code id="log-modal-body" class="modal-log-body text-xs whitespace-pre-wrap break-all p-4 rounded-md"></code></pre></div><div class="items-center text-right px-4 py-3 mt-4"><button id="log-modal-close" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Close</button></div></div></div>
 
     <script>
         let refreshIntervalId = null;
         document.addEventListener('DOMContentLoaded', () => {
-            // --- THEME HANDLING ---
-            const themeToggle = document.getElementById('theme-toggle');
-            const applyTheme = (theme) => {
-                if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                    themeToggle.checked = true;
+            // --- VIEW MODE HANDLING ---
+            const viewModeToggle = document.getElementById('view-mode-toggle');
+            const fullView = document.getElementById('full-view');
+            const compactView = document.getElementById('compact-view');
+            const applyViewMode = (mode) => {
+                if (mode === 'compact') {
+                    fullView.classList.add('hidden');
+                    compactView.classList.remove('hidden');
+                    viewModeToggle.checked = true;
                 } else {
-                    document.documentElement.classList.remove('dark');
-                    themeToggle.checked = false;
+                    fullView.classList.remove('hidden');
+                    compactView.classList.add('hidden');
+                    viewModeToggle.checked = false;
                 }
             };
+            const savedViewMode = localStorage.getItem('viewMode') || 'full';
+            applyViewMode(savedViewMode);
+            viewModeToggle.addEventListener('change', () => {
+                const newMode = viewModeToggle.checked ? 'compact' : 'full';
+                localStorage.setItem('viewMode', newMode);
+                applyViewMode(newMode);
+            });
 
-            // This part is now handled by the script in the <head>,
-            // but we keep the event listener for the toggle switch.
-            // And we still need to set the initial state of the toggle itself.
+            // --- THEME HANDLING ---
+            const themeToggle = document.getElementById('theme-toggle');
             const savedTheme = localStorage.getItem('theme');
-                const hour = new Date().getHours();
+            const hour = new Date().getHours();
             if (savedTheme === 'dark' || (!savedTheme && (hour < 7 || hour >= 19))) {
                 themeToggle.checked = true;
             } else {
                 themeToggle.checked = false;
             }
-            
             themeToggle.addEventListener('change', () => {
                 const newTheme = themeToggle.checked ? 'dark' : 'light';
                 localStorage.setItem('theme', newTheme);
@@ -209,16 +224,13 @@
                 }
             });
 
-
-            // --- MODAL HANDLING (Generic) ---
+            // --- MODAL HANDLING ---
             const confirmationModal = { el: document.getElementById('confirmationModal'), title: document.getElementById('modal-title'), body: document.getElementById('modal-body'), cancel: document.getElementById('modal-cancel'), confirm: document.getElementById('modal-confirm'), callback: null };
             const logModal = { el: document.getElementById('logViewerModal'), title: document.getElementById('log-modal-title'), body: document.getElementById('log-modal-body'), close: document.getElementById('log-modal-close') };
-
             function showConfirmationModal(title, body, onConfirm) { confirmationModal.title.textContent = title; confirmationModal.body.textContent = body; confirmationModal.callback = onConfirm; confirmationModal.el.classList.remove('hidden'); }
             function hideConfirmationModal() { confirmationModal.el.classList.add('hidden'); confirmationModal.callback = null; }
             confirmationModal.cancel.addEventListener('click', hideConfirmationModal);
             confirmationModal.confirm.addEventListener('click', () => { if (typeof confirmationModal.callback === 'function') confirmationModal.callback(); hideConfirmationModal(); });
-
             function showLogModal(title, logLines) { logModal.title.textContent = `Error Logs for: ${title}`; logModal.body.textContent = logLines.length > 0 ? logLines.join('\n') : 'No errors found.'; logModal.el.classList.remove('hidden'); }
             function hideLogModal() { logModal.el.classList.add('hidden'); }
             logModal.close.addEventListener('click', hideLogModal);
@@ -241,10 +253,8 @@
             document.body.addEventListener('click', function(event) {
                 const button = event.target.closest('button[data-action]');
                 if (!button || button.id.startsWith('modal-') || button.id.startsWith('log-modal-')) return;
-
                 const action = button.dataset.action, vmxPath = button.dataset.vmx;
                 let snapshotName = button.dataset.snapshotName, vmName = button.dataset.vmName;
-
                 if (action && vmxPath) {
                     const performFetch = (payload, btn) => {
                         const buttonGroup = btn.closest('.flex-wrap');
@@ -255,16 +265,11 @@
                             .then(({ ok, data }) => { if (!ok) throw new Error(data.message || 'Unknown error'); if (localStorage.getItem('vmRefreshInterval') === '0') setTimeout(() => location.reload(), 500); })
                             .catch(err => { console.error(`Error: ${err.message}`); btn.innerHTML = "Error!"; setTimeout(() => location.reload(), 2000); });
                     };
-                    
                     if (action === 'view_errors') {
                         button.innerHTML = '...';
                         fetch('/api/vm/logs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vmx_path: vmxPath })})
                             .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                            .then(({ok, data}) => {
-                                if (!ok) throw new Error(data.message);
-                                showLogModal(vmName, data.logs);
-                                button.innerHTML = `View Errors (${data.logs.length})`;
-                            })
+                            .then(({ok, data}) => { if (!ok) throw new Error(data.message); showLogModal(vmName, data.logs); button.innerHTML = `View Errors (${data.logs.length})`; })
                             .catch(err => { console.error(`Error fetching logs: ${err.message}`); button.innerHTML = 'Error!'; });
                     } else {
                         let payload = { vmx_path: vmxPath, action: action, snapshot_name: snapshotName };
