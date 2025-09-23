@@ -7,6 +7,7 @@ import shutil
 import re
 import glob
 from functools import wraps
+import sys
 
 app = Flask(__name__)
 
@@ -43,13 +44,12 @@ def run_command(command):
 def is_workstation_gui_running():
     """Checks if the VMware Workstation GUI process is running on the host."""
     try:
-        # Use a precise pattern to match only the main GUI process
         command = "/usr/bin/pgrep -f '^/usr/lib/vmware/bin/vmware$'"
         stdout, _, returncode = run_command(command)
         return returncode == 0 and stdout.strip() != ""
     except Exception:
         return False
-        
+
 def get_active_snapshot(vmx_path):
     vm_dir = os.path.dirname(vmx_path)
     vmsd_path = vmx_path.replace('.vmx', '.vmsd')
@@ -89,7 +89,7 @@ def get_active_snapshot(vmx_path):
                 match = re.search(r'"(.*?)"', line)
                 if match:
                     snapshot_name = match.group(1)
-                    break # Prefer display name
+                    break 
         
         if not snapshot_name:
             for line in lines:
@@ -118,16 +118,19 @@ def parse_vmx_details(vmx_path):
     details = []
     try:
         with open(vmx_path, 'r', errors='ignore') as f:
-            lines = [line.strip().lower() for line in f.readlines()]
+            lines = [line.strip() for line in f.readlines()]
         
         nics = {}
         for line in lines:
-            match = re.match(r'^(ethernet(\d+))\.(.+?)\s*=\s*"(.+?)"', line)
+            # Case-insensitive matching for the start of the line
+            if line.lower().startswith('ethernet'):
+                match = re.match(r'^(ethernet(\d+))\.(.+?)\s*=\s*"(.+?)"', line, re.IGNORECASE)
             if match:
                 key, nic_num, prop, value = match.groups()
                 if nic_num not in nics:
                     nics[nic_num] = {}
-                nics[nic_num][prop] = value
+                    # Store property name in lowercase to standardize
+                    nics[nic_num][prop.lower()] = value
         
         for num, data in sorted(nics.items()):
             mac = data.get('generatedaddress')
@@ -158,6 +161,28 @@ def check_vm_logs_for_errors(vm_dir):
         logging.error(f"Error reading log file {log_file}: {e}")
 
     return {'count': len(error_lines), 'lines': error_lines}
+
+def graceful_shutdown_all_vms():
+    """Finds all running VMs and sends a soft (graceful) shutdown command."""
+    logging.info("Service stopping: Attempting graceful shutdown of all running VMs...")
+    try:
+        command = [VMRUN_PATH, 'list']
+        result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        running_vms_output = result.stdout
+        
+        vmx_paths = [line.strip() for line in running_vms_output.splitlines() if '.vmx' in line]
+        if not vmx_paths:
+            logging.info("No running VMs found to shut down.")
+            return
+
+        for vmx_path in vmx_paths:
+            logging.info(f"Sending graceful shutdown command to: {vmx_path}")
+            shutdown_command = [VMRUN_PATH, 'stop', vmx_path, 'soft']
+            subprocess.run(shutdown_command, check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Failed to list running VMs for shutdown: {e.stderr}")
+    except Exception as e:
+        logging.error(f"An unexpected error occurred during graceful shutdown: {e}")
 
 @timed_function
 def get_all_vm_info(force_refresh=False):
@@ -199,7 +224,6 @@ def get_all_vm_info(force_refresh=False):
             
             is_running = vmx_path in running_vms
             
-            # Update dynamic data in cache, especially log info for running VMs
             if is_running:
                 cached_data['error_log_info'] = check_vm_logs_for_errors(vm_dir)
             
@@ -222,7 +246,11 @@ def get_all_vm_info(force_refresh=False):
         if vm['lab'] not in vms_by_lab: vms_by_lab[vm['lab']] = []
         vms_by_lab[vm['lab']].append(vm)
     
-    # Also return a flat list for compact view
+    # Sort the list of VMs within each lab
+    for lab_name in vms_by_lab:
+        vms_by_lab[lab_name].sort(key=lambda x: x['title'])
+
+    # Sort the flat list for the compact view
     all_vms.sort(key=lambda x: x['title'])
     return vms_by_lab, all_vms
 
@@ -257,13 +285,13 @@ def manage_vm():
         command = f'{VMRUN_PATH} revertToSnapshot "{vmx_path}" "{snapshot_name}"'
     elif action == 'clean_locks':
         clean_vm_locks(vm_dir)
-        if vmx_path in vm_cache: del vm_cache[vmx_path] # Force refresh for this VM
+        if vmx_path in vm_cache: del vm_cache[vmx_path]
         return jsonify({'status': 'success', 'message': 'Locks cleaned'})
 
     if command:
         _, stderr, returncode = run_command(command)
         if returncode == 0:
-            if vmx_path in vm_cache: del vm_cache[vmx_path] # Force refresh for this VM
+            if vmx_path in vm_cache: del vm_cache[vmx_path]
             return jsonify({'status': 'success'})
         else:
             return jsonify({'status': 'error', 'message': stderr or "Unknown error"}), 500
@@ -281,11 +309,13 @@ def get_vm_logs():
     if cached_data and 'error_log_info' in cached_data:
         return jsonify({'status': 'success', 'logs': cached_data['error_log_info']['lines']})
     else:
-        # Fallback to a live check if not in cache (e.g., after a full refresh)
         vm_dir = os.path.dirname(vmx_path)
         log_info = check_vm_logs_for_errors(vm_dir)
         return jsonify({'status': 'success', 'logs': log_info['lines']})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    if len(sys.argv) > 1 and sys.argv[1] == 'shutdown_vms':
+        graceful_shutdown_all_vms()
+    else:
+        app.run(debug=True, host='0.0.0.0', port=5000)
 
