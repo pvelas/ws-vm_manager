@@ -118,19 +118,19 @@ def parse_vmx_details(vmx_path):
     details = []
     try:
         with open(vmx_path, 'r', errors='ignore') as f:
-            lines = [line.strip() for line in f.readlines()]
+            lines = f.readlines()
         
         nics = {}
-        for line in lines:
-            # Case-insensitive matching for the start of the line
-            if line.lower().startswith('ethernet'):
-                match = re.match(r'^(ethernet(\d+))\.(.+?)\s*=\s*"(.+?)"', line, re.IGNORECASE)
+        for raw_line in lines:
+            # Standardize by converting to lowercase first
+            line = raw_line.strip().lower()
+            
+            match = re.match(r'^(ethernet(\d+))\.(.+?)\s*=\s*"(.+?)"', line)
             if match:
                 key, nic_num, prop, value = match.groups()
                 if nic_num not in nics:
                     nics[nic_num] = {}
-                    # Store property name in lowercase to standardize
-                    nics[nic_num][prop.lower()] = value
+                nics[nic_num][prop] = value
         
         for num, data in sorted(nics.items()):
             mac = data.get('generatedaddress')
@@ -246,11 +246,9 @@ def get_all_vm_info(force_refresh=False):
         if vm['lab'] not in vms_by_lab: vms_by_lab[vm['lab']] = []
         vms_by_lab[vm['lab']].append(vm)
     
-    # Sort the list of VMs within each lab
     for lab_name in vms_by_lab:
         vms_by_lab[lab_name].sort(key=lambda x: x['title'])
 
-    # Sort the flat list for the compact view
     all_vms.sort(key=lambda x: x['title'])
     return vms_by_lab, all_vms
 
